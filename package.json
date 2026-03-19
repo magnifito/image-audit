@@ -1,0 +1,44 @@
+{
+  "name": "@puralex/image-audit",
+  "version": "0.1.0",
+  "description": "Lint and audit image references in web projects — find broken links, unused images, duplicates, format mismatches, and overused assets.",
+  "type": "module",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18.3.0"
+  },
+  "bin": {
+    "image-audit": "./bin/image-audit.js"
+  },
+  "exports": {
+    ".": "./src/index.js"
+  },
+  "files": [
+    "bin/",
+    "src/",
+    "types/"
+  ],
+  "types": "./types/index.d.ts",
+  "keywords": [
+    "image",
+    "lint",
+    "check",
+    "broken-links",
+    "unused-images",
+    "duplicates",
+    "astro",
+    "mdx",
+    "web"
+  ],
+  "dependencies": {
+    "file-type": "^20.5.0"
+  },
+  "peerDependencies": {
+    "sharp": ">=0.33.0"
+  },
+  "peerDependenciesMeta": {
+    "sharp": {
+      "optional": true
+    }
+  }
+}
