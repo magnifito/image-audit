@@ -4,6 +4,15 @@
   "description": "Lint and audit image references in web projects — find broken links, unused images, duplicates, format mismatches, and overused assets.",
   "type": "module",
   "license": "MIT",
+  "author": "Puralex",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/magnifito/image-audit.git"
+  },
+  "homepage": "https://github.com/magnifito/image-audit#readme",
+  "bugs": {
+    "url": "https://github.com/magnifito/image-audit/issues"
+  },
   "engines": {
     "node": ">=18.3.0"
   },
@@ -21,11 +30,12 @@
   "types": "./types/index.d.ts",
   "keywords": [
     "image",
+    "audit",
     "lint",
-    "check",
     "broken-links",
     "unused-images",
     "duplicates",
+    "compat",
     "astro",
     "mdx",
     "web"
