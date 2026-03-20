@@ -1,6 +1,6 @@
 {
   "name": "@puralex/image-audit",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Lint and audit image references in web projects — find broken links, unused images, duplicates, format mismatches, and overused assets.",
   "type": "module",
   "license": "MIT",
@@ -12,6 +12,10 @@
   "homepage": "https://github.com/magnifito/image-audit#readme",
   "bugs": {
     "url": "https://github.com/magnifito/image-audit/issues"
+  },
+  "scripts": {
+    "generate-fixtures": "node test/generate-fixtures.js",
+    "test": "node test/generate-fixtures.js && node --test test/run.js"
   },
   "engines": {
     "node": ">=18.3.0"

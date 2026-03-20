@@ -119,3 +119,16 @@ export interface LintResult {
 }
 
 export function lint(options?: LintOptions): Promise<LintResult>;
+
+export interface ImageInspection {
+  ext: string;
+  mime: string;
+  valid: boolean;
+  format: string;
+  hasNamespace?: boolean;
+  hasViewBox?: boolean;
+  hasDimensions?: boolean;
+}
+
+export function inspectImage(filePath: string): ImageInspection | null;
+export const WEB_IMAGE_EXTS: Set<string>;

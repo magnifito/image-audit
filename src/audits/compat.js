@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileTypeFromFile } from 'file-type';
 import { findFiles } from '../utils/find-files.js';
+import { inspectImage, WEB_IMAGE_EXTS } from '../utils/inspect-image.js';
 
 function gcd(a, b) {
   return b === 0 ? a : gcd(b, a % b);
@@ -14,7 +15,10 @@ function calculateAspectRatio(width, height) {
 }
 
 function areEquivalent(ext1, ext2) {
-  return (ext1 === 'jpg' && ext2 === 'jpeg') || (ext1 === 'jpeg' && ext2 === 'jpg');
+  if ((ext1 === 'jpg' && ext2 === 'jpeg') || (ext1 === 'jpeg' && ext2 === 'jpg')) return true;
+  // SVG is XML-based — file-type detects SVGs as application/xml
+  if ((ext1 === 'svg' && ext2 === 'xml') || (ext1 === 'xml' && ext2 === 'svg')) return true;
+  return false;
 }
 
 function safeStatSize(filePath) {
@@ -27,7 +31,11 @@ function safeStatSize(filePath) {
 
 /**
  * Verify image file extensions match their actual binary format.
- * Uses file-type for magic-byte detection and optionally sharp for dimensions.
+ *
+ * Detection pipeline:
+ *   1. inspectImage() — magic bytes + structural validation for web formats
+ *   2. fileTypeFromFile() — file-type library as secondary cross-check
+ *   3. sharp (optional) — image dimensions and aspect ratio
  *
  * @param {object} config - Resolved config
  * @returns {Promise<{ ok: boolean, issues: Array<object>, entries: Array<object>, stats: { audited: number } }>}
@@ -54,12 +62,25 @@ export async function auditCompat(config) {
 
     try {
       const stats = fs.statSync(imagePath);
-      const ftResult = await fileTypeFromFile(imagePath);
+
+      // 1. Primary: our own byte-level inspection
+      const inspection = inspectImage(imagePath);
+
+      // 2. Secondary: file-type library cross-check (skip for SVG — it can't detect text formats)
+      const ftResult = inspection?.format !== 'svg'
+        ? await fileTypeFromFile(imagePath)
+        : null;
+
+      // Determine the detected format — prefer our inspection, fall back to file-type
+      const detectedExt = inspection?.ext ?? ftResult?.ext ?? null;
+      const detectedMime = inspection?.mime ?? ftResult?.mime ?? null;
+
+      // 3. Dimensions via sharp (skip SVG — sharp can't read them)
       let width = null;
       let height = null;
       let aspectRatio = null;
 
-      if (sharp && declaredExt !== 'svg') {
+      if (sharp && detectedExt !== 'svg' && declaredExt !== 'svg') {
         try {
           const meta = await sharp(imagePath).metadata();
           width = meta.width ?? null;
@@ -73,8 +94,8 @@ export async function auditCompat(config) {
       const entry = {
         imagePath: rel,
         declaredExt,
-        detectedExt: ftResult?.ext ?? null,
-        detectedMime: ftResult?.mime ?? null,
+        detectedExt,
+        detectedMime,
         width,
         height,
         aspectRatio,
@@ -83,14 +104,32 @@ export async function auditCompat(config) {
         errorMessage: null,
       };
 
-      if (!ftResult) {
+      // Cross-check: if both our inspector and file-type detected something,
+      // flag when they disagree (possible corruption or polyglot file)
+      if (inspection && ftResult && inspection.ext !== ftResult.ext && !areEquivalent(inspection.ext, ftResult.ext)) {
+        entry.status = 'mismatch';
+        entry.errorMessage = `Byte inspection detected ${inspection.ext} but file-type detected ${ftResult.ext}`;
+        issues.push({ ...entry, type: 'mismatch' });
+      }
+      // Nothing detected — unrecognized file
+      else if (!detectedExt) {
         entry.status = 'unknown_binary';
         issues.push({ ...entry, type: 'unknown_binary' });
-      } else if (ftResult.ext !== declaredExt && !areEquivalent(declaredExt, ftResult.ext)) {
+      }
+      // Detected format doesn't match declared extension
+      else if (detectedExt !== declaredExt && !areEquivalent(declaredExt, detectedExt)) {
         entry.status = 'mismatch';
         issues.push({ ...entry, type: 'mismatch' });
-      } else if (ftResult.ext !== declaredExt && areEquivalent(declaredExt, ftResult.ext)) {
+      }
+      // Equivalent extensions (jpg/jpeg)
+      else if (detectedExt !== declaredExt && areEquivalent(declaredExt, detectedExt)) {
         entry.status = 'ok_equivalent';
+      }
+      // Detected format is not web-viable
+      else if (!WEB_IMAGE_EXTS.has(detectedExt)) {
+        entry.status = 'mismatch';
+        entry.errorMessage = `${detectedExt} is not a web-viable image format`;
+        issues.push({ ...entry, type: 'mismatch' });
       }
 
       entries.push(entry);

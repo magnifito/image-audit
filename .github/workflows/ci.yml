@@ -18,5 +18,4 @@ jobs:
         with:
           node-version: ${{ matrix.node-version }}
       - run: npm ci
-      - run: node --version
-      - run: node -e "import('@puralex/image-audit')"
+      - run: npm test

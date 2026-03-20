@@ -2,6 +2,7 @@ export { loadConfig } from './config.js';
 export { scanReferences } from './utils/scan-references.js';
 export { findFiles } from './utils/find-files.js';
 export { normalizePath } from './utils/normalize-path.js';
+export { inspectImage, WEB_IMAGE_EXTS } from './utils/inspect-image.js';
 export { auditBroken } from './audits/broken.js';
 export { auditUnused } from './audits/unused.js';
 export { auditDuplicates } from './audits/duplicates.js';
