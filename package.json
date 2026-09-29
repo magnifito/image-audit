@@ -24,7 +24,7 @@
     "node": ">=20.0.0"
   },
   "bin": {
-    "image-audit": "./bin/image-audit.js"
+    "image-audit": "bin/image-audit.js"
   },
   "exports": {
     ".": {
