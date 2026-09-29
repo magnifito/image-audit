@@ -20,8 +20,12 @@ const DEFAULT_IGNORED_DIRS = new Set([
  * @param {{ recursive?: boolean, ignoredDirs?: Iterable<string> }} [options]
  * @returns {string[]} Array of absolute file paths
  */
-export function findFiles(startPath, extensions, { recursive = true, ignoredDirs = DEFAULT_IGNORED_DIRS } = {}) {
-  const extSet = new Set(extensions.map(e => e.toLowerCase()));
+export function findFiles(
+  startPath,
+  extensions,
+  { recursive = true, ignoredDirs = DEFAULT_IGNORED_DIRS } = {}
+) {
+  const extSet = new Set(extensions.map((e) => e.toLowerCase()));
   const ignoreSet = ignoredDirs instanceof Set ? ignoredDirs : new Set(ignoredDirs);
   const results = [];
 

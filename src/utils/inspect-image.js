@@ -202,6 +202,4 @@ export function inspectImage(filePath) {
 /**
  * Set of extensions considered viable for web <img> usage.
  */
-export const WEB_IMAGE_EXTS = new Set(
-  WEB_FORMATS.map((f) => f.ext).concat(['jpeg', 'svg'])
-);
+export const WEB_IMAGE_EXTS = new Set(WEB_FORMATS.map((f) => f.ext).concat(['jpeg', 'svg']));

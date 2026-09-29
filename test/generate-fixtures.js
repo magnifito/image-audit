@@ -24,10 +24,10 @@ function minimalPng() {
   const sig = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
   // IHDR: length=13, "IHDR", width=1, height=1, bitDepth=8, colorType=2, rest=0
   const ihdrData = Buffer.alloc(13);
-  ihdrData.writeUInt32BE(1, 0);  // width
-  ihdrData.writeUInt32BE(1, 4);  // height
-  ihdrData[8] = 8;               // bit depth
-  ihdrData[9] = 2;               // color type (RGB)
+  ihdrData.writeUInt32BE(1, 0); // width
+  ihdrData.writeUInt32BE(1, 4); // height
+  ihdrData[8] = 8; // bit depth
+  ihdrData[9] = 2; // color type (RGB)
   const ihdrLen = Buffer.alloc(4);
   ihdrLen.writeUInt32BE(13, 0);
   const ihdrType = Buffer.from('IHDR');
@@ -42,36 +42,74 @@ function minimalPng() {
 function minimalJpeg() {
   // SOI + APP0 (JFIF) marker + EOI
   return Buffer.from([
-    0xff, 0xd8,                         // SOI
-    0xff, 0xe0,                         // APP0
-    0x00, 0x10,                         // length = 16
-    0x4a, 0x46, 0x49, 0x46, 0x00,      // "JFIF\0"
-    0x01, 0x01,                         // version 1.1
-    0x00,                               // aspect ratio units
-    0x00, 0x01, 0x00, 0x01,            // 1x1 density
-    0x00, 0x00,                         // no thumbnail
-    0xff, 0xd9,                         // EOI
+    0xff,
+    0xd8, // SOI
+    0xff,
+    0xe0, // APP0
+    0x00,
+    0x10, // length = 16
+    0x4a,
+    0x46,
+    0x49,
+    0x46,
+    0x00, // "JFIF\0"
+    0x01,
+    0x01, // version 1.1
+    0x00, // aspect ratio units
+    0x00,
+    0x01,
+    0x00,
+    0x01, // 1x1 density
+    0x00,
+    0x00, // no thumbnail
+    0xff,
+    0xd9, // EOI
   ]);
 }
 
 function minimalGif() {
   // GIF89a, 1x1, no GCT
   return Buffer.from([
-    0x47, 0x49, 0x46, 0x38, 0x39, 0x61, // GIF89a
-    0x01, 0x00, 0x01, 0x00,             // 1x1
-    0x00, 0x00, 0x00,                   // no GCT, bg=0, aspect=0
-    0x3b,                               // trailer
+    0x47,
+    0x49,
+    0x46,
+    0x38,
+    0x39,
+    0x61, // GIF89a
+    0x01,
+    0x00,
+    0x01,
+    0x00, // 1x1
+    0x00,
+    0x00,
+    0x00, // no GCT, bg=0, aspect=0
+    0x3b, // trailer
   ]);
 }
 
 function minimalWebp() {
   // RIFF + WEBP + VP8 chunk (simplest lossy)
   const vp8Data = Buffer.from([
-    0x9d, 0x01, 0x2a,  // VP8 bitstream signature
-    0x01, 0x00,         // width=1
-    0x01, 0x00,         // height=1
-    0x01, 0x40, 0x25, 0xa4, 0x00, 0x03, 0x70, 0x00,
-    0xfe, 0xfb, 0x94, 0x00, 0x00,
+    0x9d,
+    0x01,
+    0x2a, // VP8 bitstream signature
+    0x01,
+    0x00, // width=1
+    0x01,
+    0x00, // height=1
+    0x01,
+    0x40,
+    0x25,
+    0xa4,
+    0x00,
+    0x03,
+    0x70,
+    0x00,
+    0xfe,
+    0xfb,
+    0x94,
+    0x00,
+    0x00,
   ]);
   const riff = Buffer.from('RIFF');
   const webp = Buffer.from('WEBP');
@@ -156,9 +194,9 @@ const files = {
   'bom.svg': SVG_WITH_BOM,
 
   // ── Mismatched extension vs content ──
-  'actually-jpeg.png': minimalJpeg(),       // claims .png, actually JPEG
-  'actually-png.jpg': minimalPng(),         // claims .jpg, actually PNG
-  'actually-gif.webp': minimalGif(),        // claims .webp, actually GIF
+  'actually-jpeg.png': minimalJpeg(), // claims .png, actually JPEG
+  'actually-png.jpg': minimalPng(), // claims .jpg, actually PNG
+  'actually-gif.webp': minimalGif(), // claims .webp, actually GIF
 
   // ── Corrupt / unknown ──
   'corrupt.png': Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x00, 0x00, 0x00, 0x00]), // PNG sig but no IHDR
@@ -194,7 +232,7 @@ fs.mkdirSync(ASTRO_CACHE, { recursive: true });
 // package.json for Astro 7 project
 fs.writeFileSync(
   path.join(FIXTURES, 'package.json'),
-  JSON.stringify(
+  `${JSON.stringify(
     {
       name: 'astro-fixture-project',
       type: 'module',
@@ -205,7 +243,7 @@ fs.writeFileSync(
     },
     null,
     2
-  ) + '\n'
+  )}\n`
 );
 
 // astro.config.mjs (Astro 7 config)
@@ -226,7 +264,7 @@ export default defineConfig({
 // tsconfig.json (Astro 7 strict config)
 fs.writeFileSync(
   path.join(FIXTURES, 'tsconfig.json'),
-  JSON.stringify(
+  `${JSON.stringify(
     {
       extends: 'astro/tsconfigs/strict',
       include: ['.astro/types.d.ts', '**/*'],
@@ -242,7 +280,7 @@ fs.writeFileSync(
     },
     null,
     2
-  ) + '\n'
+  )}\n`
 );
 
 // .astro/types.d.ts & settings.json (Astro 7 generated cache folder)
@@ -257,7 +295,7 @@ declare module 'astro:content' {
 );
 fs.writeFileSync(
   path.join(ASTRO_CACHE, 'settings.json'),
-  JSON.stringify({ version: '7.0.0' }, null, 2) + '\n'
+  `${JSON.stringify({ version: '7.0.0' }, null, 2)}\n`
 );
 
 // src/env.d.ts
@@ -286,7 +324,9 @@ export const collections = { blog };
 // ── Source pages that reference images ──────────────────────────────
 
 // Page with valid references using Astro 7 Image/Picture components & standard img
-fs.writeFileSync(path.join(PAGES, 'home.astro'), `---
+fs.writeFileSync(
+  path.join(PAGES, 'home.astro'),
+  `---
 import { Image, Picture } from 'astro:assets';
 const title = "Home";
 ---
@@ -296,30 +336,39 @@ const title = "Home";
 <img src="~/assets/images/valid.webp" alt="valid webp" />
 <img src="~/assets/images/valid.avif" alt="valid avif" />
 <img src="~/assets/images/valid.svg" alt="valid svg" />
-`);
+`
+);
 
 // Page with broken references (files that don't exist)
-fs.writeFileSync(path.join(PAGES, 'broken.astro'), `---
+fs.writeFileSync(
+  path.join(PAGES, 'broken.astro'),
+  `---
 import { Image } from 'astro:assets';
 const title = "Broken";
 ---
 <Image src="~/assets/images/missing.png" alt="missing" />
 <img src="~/assets/images/deleted-photo.jpg" alt="deleted" />
 <img src="~/assets/images/typo.wepb" alt="typo" />
-`);
+`
+);
 
 // Page referencing mismatched files
-fs.writeFileSync(path.join(PAGES, 'mismatched.astro'), `---
+fs.writeFileSync(
+  path.join(PAGES, 'mismatched.astro'),
+  `---
 import { Image } from 'astro:assets';
 const title = "Mismatched";
 ---
 <Image src="~/assets/images/actually-jpeg.png" alt="actually jpeg" />
 <img src="~/assets/images/actually-png.jpg" alt="actually png" />
 <img src="~/assets/images/actually-gif.webp" alt="actually gif" />
-`);
+`
+);
 
 // Page referencing corrupt files
-fs.writeFileSync(path.join(PAGES, 'corrupt.astro'), `---
+fs.writeFileSync(
+  path.join(PAGES, 'corrupt.astro'),
+  `---
 import { Image } from 'astro:assets';
 const title = "Corrupt";
 ---
@@ -327,10 +376,13 @@ const title = "Corrupt";
 <img src="~/assets/images/random-bytes.jpg" alt="random" />
 <img src="~/assets/images/empty.png" alt="empty" />
 <img src="~/assets/images/not-svg.svg" alt="fake svg" />
-`);
+`
+);
 
 // Page referencing SVG variants
-fs.writeFileSync(path.join(PAGES, 'svgs.astro'), `---
+fs.writeFileSync(
+  path.join(PAGES, 'svgs.astro'),
+  `---
 import { Image } from 'astro:assets';
 const title = "SVG tests";
 ---
@@ -339,20 +391,26 @@ const title = "SVG tests";
 <img src="~/assets/images/no-namespace.svg" alt="no namespace" />
 <img src="~/assets/images/doctype.svg" alt="doctype" />
 <img src="~/assets/images/comment-before.svg" alt="comment" />
-`);
+`
+);
 
 // Page causing overuse (references images already used in home.astro)
-fs.writeFileSync(path.join(PAGES, 'about.astro'), `---
+fs.writeFileSync(
+  path.join(PAGES, 'about.astro'),
+  `---
 import { Image } from 'astro:assets';
 const title = "About";
 ---
 <Image src="~/assets/images/valid.png" alt="reused png" />
 <img src="~/assets/images/valid.jpg" alt="reused jpg" />
 <img src="~/assets/images/valid.svg" alt="reused svg" />
-`);
+`
+);
 
 // Page referencing duplicates
-fs.writeFileSync(path.join(PAGES, 'gallery.astro'), `---
+fs.writeFileSync(
+  path.join(PAGES, 'gallery.astro'),
+  `---
 import { Image } from 'astro:assets';
 const title = "Gallery";
 ---
@@ -360,10 +418,13 @@ const title = "Gallery";
 <img src="~/assets/images/hero-copy.png" alt="hero copy" />
 <Image src="~/assets/images/banner.jpg" alt="banner" />
 <img src="~/assets/images/banner-backup.jpg" alt="banner backup" />
-`);
+`
+);
 
 // Content collection post in MDX (Astro Content Layer)
-fs.writeFileSync(path.join(CONTENT, 'welcome.mdx'), `---
+fs.writeFileSync(
+  path.join(CONTENT, 'welcome.mdx'),
+  `---
 title: "Welcome to Astro 7"
 ---
 import { Image } from 'astro:assets';
@@ -371,8 +432,11 @@ import { Image } from 'astro:assets';
 # Welcome
 
 <Image src="~/assets/images/valid.png" alt="valid in mdx" />
-`);
+`
+);
 
 const imgCount = Object.keys(files).length;
 const pageCount = fs.readdirSync(PAGES).length;
-console.log(`Generated ${imgCount} image fixtures and ${pageCount} source pages in Astro 7 compatible structure.`);
+console.log(
+  `Generated ${imgCount} image fixtures and ${pageCount} source pages in Astro 7 compatible structure.`
+);

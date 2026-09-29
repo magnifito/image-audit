@@ -90,13 +90,9 @@ function reportDupes(c, result, log) {
     return;
   }
 
-  log(
-    `\n${c.bright}${c.red}Found ${result.issues.length} set(s) of duplicate images:${c.reset}`
-  );
+  log(`\n${c.bright}${c.red}Found ${result.issues.length} set(s) of duplicate images:${c.reset}`);
   for (const issue of result.issues) {
-    log(
-      `\n  ${c.yellow}Duplicate set (Hash: ${issue.hash.substring(0, 12)}...):${c.reset}`
-    );
+    log(`\n  ${c.yellow}Duplicate set (Hash: ${issue.hash.substring(0, 12)}...):${c.reset}`);
     for (const file of issue.files) {
       log(`    - ${c.magenta}${file}${c.reset}`);
     }
@@ -146,11 +142,14 @@ function reportCompat(c, result, verbose, log) {
       `\n${c.bright}${c.red}Found ${result.issues.length} image(s) with issues out of ${stats.audited} checked:${c.reset}`
     );
     for (const issue of result.issues) {
-      const tag = issue.type === 'mismatch' ? '[MISMATCH]' : issue.type === 'error' ? '[ERROR]' : '[UNKNOWN]';
+      const tag =
+        issue.type === 'mismatch' ? '[MISMATCH]' : issue.type === 'error' ? '[ERROR]' : '[UNKNOWN]';
+      // errorMessage carries the specific reason (cross-check failure, non-web format, ...)
       const detail =
-        issue.type === 'mismatch'
+        issue.errorMessage ||
+        (issue.type === 'mismatch'
           ? `declared .${issue.declaredExt}, detected .${issue.detectedExt} (${issue.detectedMime})`
-          : issue.errorMessage || 'Could not detect binary format';
+          : 'Could not detect binary format');
       log(`  ${c.red}${tag}${c.reset} ${c.cyan}${issue.imagePath}${c.reset} — ${detail}`);
     }
   }

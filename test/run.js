@@ -7,38 +7,30 @@
  * Run: node --test test/run.js
  */
 
-import { describe, it, before } from 'node:test';
 import assert from 'node:assert/strict';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
-
 import fs from 'node:fs';
 import os from 'node:os';
-
+import path from 'node:path';
+import { before, describe, it } from 'node:test';
+import { fileURLToPath } from 'node:url';
+import { areEquivalent, calculateAspectRatio, gcd, safeStatSize } from '../src/audits/compat.js';
+import { run } from '../src/cli.js';
 import {
+  auditBroken,
+  auditCompat,
+  auditDuplicates,
+  auditOveruse,
+  auditUnused,
+  findFiles,
+  inspectImage,
   lint,
   loadConfig,
-  scanReferences,
-  findFiles,
   normalizePath,
-  auditBroken,
-  auditUnused,
-  auditDuplicates,
-  auditCompat,
-  auditOveruse,
-  inspectImage,
+  scanReferences,
   WEB_IMAGE_EXTS,
 } from '../src/index.js';
-
-import {
-  gcd,
-  calculateAspectRatio,
-  areEquivalent,
-  safeStatSize,
-} from '../src/audits/compat.js';
-import { run } from '../src/cli.js';
-import { createReporter as createTextReporter } from '../src/reporters/text.js';
 import { createReporter as createJsonReporter } from '../src/reporters/json.js';
+import { createReporter as createTextReporter } from '../src/reporters/text.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const FIXTURES = path.join(__dirname, 'fixtures');
@@ -254,13 +246,17 @@ describe('auditDuplicates', () => {
 
   it('groups files with identical content', () => {
     const result = auditDuplicates(config);
-    const heroSet = result.issues.find((i) =>
-      i.files.some((f) => f.includes('hero.png')) && i.files.some((f) => f.includes('hero-copy.png'))
+    const heroSet = result.issues.find(
+      (i) =>
+        i.files.some((f) => f.includes('hero.png')) &&
+        i.files.some((f) => f.includes('hero-copy.png'))
     );
     assert.ok(heroSet, 'hero.png and hero-copy.png should be grouped');
 
-    const bannerSet = result.issues.find((i) =>
-      i.files.some((f) => f.includes('banner.jpg')) && i.files.some((f) => f.includes('banner-backup.jpg'))
+    const bannerSet = result.issues.find(
+      (i) =>
+        i.files.some((f) => f.includes('banner.jpg')) &&
+        i.files.some((f) => f.includes('banner-backup.jpg'))
     );
     assert.ok(bannerSet, 'banner.jpg and banner-backup.jpg should be grouped');
   });
@@ -388,10 +384,9 @@ describe('lint()', () => {
   });
 
   it('throws on unknown audit name', async () => {
-    await assert.rejects(
-      () => lint({ ...configOverrides, audits: ['nonexistent'] }),
-      { message: /Unknown audit/ }
-    );
+    await assert.rejects(() => lint({ ...configOverrides, audits: ['nonexistent'] }), {
+      message: /Unknown audit/,
+    });
   });
 });
 
@@ -413,13 +408,21 @@ describe('normalizePath', () => {
   });
 
   it('strips hash fragments from image path', () => {
-    const res = normalizePath('/assets/images/sprites.svg#icon', 'src/pages/home.astro', normConfig);
+    const res = normalizePath(
+      '/assets/images/sprites.svg#icon',
+      'src/pages/home.astro',
+      normConfig
+    );
     assert.equal(res.normalized, 'src/assets/images/sprites.svg');
     assert.equal(res.warning, null);
   });
 
   it('rejects paths to sibling directories with common prefix', () => {
-    const res = normalizePath('src/assets/images_other/pic.png', 'src/pages/home.astro', normConfig);
+    const res = normalizePath(
+      'src/assets/images_other/pic.png',
+      'src/pages/home.astro',
+      normConfig
+    );
     assert.equal(res.normalized, null);
     assert.ok(res.warning?.includes('Path normalization incomplete'));
   });
@@ -431,7 +434,14 @@ describe('findFiles', () => {
   it('prunes default ignored directories', () => {
     const files = findFiles(FIXTURES, ['.astro', '.png']);
     assert.ok(files.length > 0);
-    assert.ok(!files.some((f) => f.replace(/\\/g, '/').includes('/node_modules/') || f.replace(/\\/g, '/').includes('/.git/') || f.replace(/\\/g, '/').includes('/.astro/')));
+    assert.ok(
+      !files.some(
+        (f) =>
+          f.replace(/\\/g, '/').includes('/node_modules/') ||
+          f.replace(/\\/g, '/').includes('/.git/') ||
+          f.replace(/\\/g, '/').includes('/.astro/')
+      )
+    );
   });
 
   it('respects custom ignoredDirs option', () => {
@@ -494,7 +504,10 @@ describe('loadConfig', () => {
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'img-audit-cfg-'));
     try {
       const pkgFile = path.join(tmpDir, 'package.json');
-      fs.writeFileSync(pkgFile, JSON.stringify({ imageAudit: { srcDir: 'pkg-src', overuseThreshold: 3 } }));
+      fs.writeFileSync(
+        pkgFile,
+        JSON.stringify({ imageAudit: { srcDir: 'pkg-src', overuseThreshold: 3 } })
+      );
       const cfg = await loadConfig({ projectRoot: tmpDir });
       assert.equal(cfg.srcDir, 'pkg-src');
       assert.equal(cfg.overuseThreshold, 3);
@@ -585,8 +598,11 @@ describe('inspectImage edge cases', () => {
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'img-svg-'));
     try {
       const svgFile = path.join(tmpDir, 'large.svg');
-      const comment = '<!-- ' + 'A'.repeat(5000) + ' -->\n';
-      fs.writeFileSync(svgFile, comment + '<svg viewBox="0 0 10 10" xmlns="http://www.w3.org/2000/svg"><rect/></svg>');
+      const comment = `<!-- ${'A'.repeat(5000)} -->\n`;
+      fs.writeFileSync(
+        svgFile,
+        `${comment}<svg viewBox="0 0 10 10" xmlns="http://www.w3.org/2000/svg"><rect/></svg>`
+      );
       const res = inspectImage(svgFile);
       assert.ok(res);
       assert.equal(res.ext, 'svg');
@@ -633,7 +649,9 @@ describe('inspectImage edge cases', () => {
   it('inspectImage ignores closeSync error during cleanup', () => {
     const origClose = fs.closeSync;
     try {
-      fs.closeSync = () => { throw new Error('close error'); };
+      fs.closeSync = () => {
+        throw new Error('close error');
+      };
       inspectImage(path.join(IMAGES, 'valid.png'));
     } finally {
       fs.closeSync = origClose;
@@ -729,7 +747,9 @@ describe('compat helpers', () => {
   it('auditCompat detects disagreement between byte inspection and file-type', async () => {
     const mockFt = async () => ({ ext: 'webp', mime: 'image/webp' });
     const res = await auditCompat({ ...config, _fileTypeFromFile: mockFt });
-    const disagreeEntry = res.issues.find((i) => i.errorMessage?.includes('Byte inspection detected'));
+    const disagreeEntry = res.issues.find((i) =>
+      i.errorMessage?.includes('Byte inspection detected')
+    );
     assert.ok(disagreeEntry);
   });
 
@@ -746,7 +766,9 @@ describe('compat helpers', () => {
         imageExtensions: ['.bmp'],
         _fileTypeFromFile: mockFt,
       });
-      const bmpIssue = res.issues.find((i) => i.errorMessage?.includes('not a web-viable image format'));
+      const bmpIssue = res.issues.find((i) =>
+        i.errorMessage?.includes('not a web-viable image format')
+      );
       assert.ok(bmpIssue);
     } finally {
       fs.rmSync(tmpDir, { recursive: true, force: true });
@@ -785,7 +807,9 @@ describe('scanReferences and normalizePath edge cases', () => {
         assert.ok(Array.isArray(res.warnings));
         assert.ok(res.warnings.some((w) => w.includes('Error reading')));
       } finally {
-        try { fs.chmodSync(badFile, 0o666); } catch {}
+        try {
+          fs.chmodSync(badFile, 0o666);
+        } catch {}
       }
     } finally {
       fs.rmSync(tmpDir, { recursive: true, force: true });
@@ -855,7 +879,9 @@ describe('additional audit edge cases', () => {
         const files = findFiles(tmpDir, ['.png']);
         assert.equal(files.length, 0);
       } finally {
-        try { fs.chmodSync(subDir, 0o777); } catch {}
+        try {
+          fs.chmodSync(subDir, 0o777);
+        } catch {}
       }
     } finally {
       fs.rmSync(tmpDir, { recursive: true, force: true });
@@ -865,8 +891,18 @@ describe('additional audit edge cases', () => {
   it('auditBroken deduplicates multiple references to the same broken link in a file', () => {
     const scanWithDupes = {
       references: [
-        { sourceFile: 'page.astro', originalPath: 'missing.png', imagePath: 'src/assets/missing.png', lineNumber: 1 },
-        { sourceFile: 'page.astro', originalPath: 'missing.png', imagePath: 'src/assets/missing.png', lineNumber: 5 },
+        {
+          sourceFile: 'page.astro',
+          originalPath: 'missing.png',
+          imagePath: 'src/assets/missing.png',
+          lineNumber: 1,
+        },
+        {
+          sourceFile: 'page.astro',
+          originalPath: 'missing.png',
+          imagePath: 'src/assets/missing.png',
+          lineNumber: 5,
+        },
       ],
     };
     const res = auditBroken({ projectRoot: FIXTURES }, scanWithDupes);
@@ -877,8 +913,18 @@ describe('additional audit edge cases', () => {
   it('auditOveruse respects custom overuseThreshold', () => {
     const scan = {
       references: [
-        { sourceFile: 'a.astro', originalPath: 'icon.png', imagePath: 'src/assets/icon.png', lineNumber: 1 },
-        { sourceFile: 'b.astro', originalPath: 'icon.png', imagePath: 'src/assets/icon.png', lineNumber: 2 },
+        {
+          sourceFile: 'a.astro',
+          originalPath: 'icon.png',
+          imagePath: 'src/assets/icon.png',
+          lineNumber: 1,
+        },
+        {
+          sourceFile: 'b.astro',
+          originalPath: 'icon.png',
+          imagePath: 'src/assets/icon.png',
+          lineNumber: 2,
+        },
       ],
     };
     const res = auditOveruse({ overuseThreshold: 2 }, scan);
@@ -974,7 +1020,13 @@ describe('text and json reporters', () => {
         },
       ],
       issues: [
-        { type: 'mismatch', imagePath: 'bad.png', declaredExt: 'jpg', detectedExt: 'png', detectedMime: 'image/png' },
+        {
+          type: 'mismatch',
+          imagePath: 'bad.png',
+          declaredExt: 'jpg',
+          detectedExt: 'png',
+          detectedMime: 'image/png',
+        },
         { type: 'error', imagePath: 'err.png', errorMessage: 'Read error' },
         { type: 'unknown_binary', imagePath: 'bin.png' },
       ],
@@ -1099,7 +1151,16 @@ describe('cli run()', () => {
     let exitCode = null;
     let jsonOutput = '';
     await run(
-      ['broken', 'dupes', '-a', 'test/fixtures/src/assets/images', '-s', 'test/fixtures/src', '-r', 'json'],
+      [
+        'broken',
+        'dupes',
+        '-a',
+        'test/fixtures/src/assets/images',
+        '-s',
+        'test/fixtures/src',
+        '-r',
+        'json',
+      ],
       {
         exit: (code) => (exitCode = code),
         write: (s) => (jsonOutput += s),
@@ -1127,10 +1188,17 @@ describe('cli run()', () => {
   it('runs duplicates alias and text reporter with no-color', async () => {
     let logged = '';
     await run(
-      ['duplicates', '-a', 'test/fixtures/src/assets/images', '-s', 'test/fixtures/src', '--no-color'],
+      [
+        'duplicates',
+        '-a',
+        'test/fixtures/src/assets/images',
+        '-s',
+        'test/fixtures/src',
+        '--no-color',
+      ],
       {
         exit: () => {},
-        log: (m = '') => (logged += m + '\n'),
+        log: (m = '') => (logged += `${m}\n`),
       }
     );
     assert.ok(logged.includes('duplicate'));
@@ -1138,13 +1206,10 @@ describe('cli run()', () => {
 
   it('runs all audits with text reporter when no subcommand given', async () => {
     let logged = '';
-    await run(
-      ['-a', 'test/fixtures/src/assets/images', '-s', 'test/fixtures/src'],
-      {
-        exit: () => {},
-        log: (m = '') => (logged += m + '\n'),
-      }
-    );
+    await run(['-a', 'test/fixtures/src/assets/images', '-s', 'test/fixtures/src'], {
+      exit: () => {},
+      log: (m = '') => (logged += `${m}\n`),
+    });
     assert.ok(logged.length > 0);
   });
 });
@@ -1153,8 +1218,18 @@ describe('additional branch coverage tests', () => {
   it('auditOveruse uses default threshold of 1 when undefined', () => {
     const scan = {
       references: [
-        { sourceFile: 'a.astro', originalPath: 'icon.png', imagePath: 'src/assets/icon.png', lineNumber: 1 },
-        { sourceFile: 'b.astro', originalPath: 'icon.png', imagePath: 'src/assets/icon.png', lineNumber: 2 },
+        {
+          sourceFile: 'a.astro',
+          originalPath: 'icon.png',
+          imagePath: 'src/assets/icon.png',
+          lineNumber: 1,
+        },
+        {
+          sourceFile: 'b.astro',
+          originalPath: 'icon.png',
+          imagePath: 'src/assets/icon.png',
+          lineNumber: 2,
+        },
       ],
     };
     const res = auditOveruse({}, scan);
@@ -1175,7 +1250,9 @@ describe('additional branch coverage tests', () => {
     assert.equal(res.warning, null);
 
     // Matching assetsDir exactly
-    const resExact = normalizePath('images/sub?query', 'src/pages/page.astro', { assetsDir: 'src/pages/images/sub' });
+    const resExact = normalizePath('images/sub?query', 'src/pages/page.astro', {
+      assetsDir: 'src/pages/images/sub',
+    });
     assert.equal(resExact.normalized, 'src/pages/images/sub');
     assert.equal(resExact.warning, null);
   });
@@ -1226,12 +1303,11 @@ describe('additional branch coverage tests', () => {
       assert.ok(loaded.imagePathPatterns[0] instanceof RegExp);
       assert.ok(loaded.imagePathPatterns[1] instanceof RegExp);
 
-      // Non-existent explicit config path (skips package.json without throwing)
-      const emptyLoaded = await loadConfig({
-        projectRoot: tmpDir,
-        config: 'non-existent.config.js',
-      });
-      assert.equal(emptyLoaded.assetsDir, 'src/assets/images');
+      // Non-existent explicit config path is an error, not a silent fallback
+      await assert.rejects(
+        () => loadConfig({ projectRoot: tmpDir, config: 'non-existent.config.js' }),
+        /Config file not found/
+      );
     } finally {
       fs.rmSync(tmpDir, { recursive: true, force: true });
     }
@@ -1241,7 +1317,10 @@ describe('additional branch coverage tests', () => {
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'img-bom-'));
     try {
       const bomSvg = path.join(tmpDir, 'bom.svg');
-      fs.writeFileSync(bomSvg, '\uFEFF<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"></svg>');
+      fs.writeFileSync(
+        bomSvg,
+        '\uFEFF<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"></svg>'
+      );
       const res = inspectImage(bomSvg);
       assert.ok(res);
       assert.equal(res.ext, 'svg');
@@ -1358,21 +1437,18 @@ describe('additional branch coverage tests', () => {
       fs.mkdirSync(imgDir, { recursive: true });
       // Create one valid image and one page referencing it once
       fs.copyFileSync(path.join(IMAGES, 'valid.png'), path.join(imgDir, 'clean.png'));
-      fs.writeFileSync(
-        path.join(srcDir, 'clean.astro'),
-        '<img src="/assets/images/clean.png">'
-      );
+      fs.writeFileSync(path.join(srcDir, 'clean.astro'), '<img src="/assets/images/clean.png">');
 
-      await run(
-        ['broken', 'unused', 'overuse', '-a', 'src/assets/images', '-s', 'src'],
-        {
-          exit: (code) => (exitCode = code),
-          log: () => {},
-          write: () => {},
-        }
-      );
+      // The CLI resolves paths against cwd
+      process.chdir(tmpDir);
+      await run(['broken', 'unused', 'overuse', '-a', 'src/assets/images', '-s', 'src'], {
+        exit: (code) => (exitCode = code),
+        log: () => {},
+        write: () => {},
+      });
       assert.equal(exitCode, 0);
     } finally {
+      process.chdir(`${__dirname}/..`);
       fs.rmSync(tmpDir, { recursive: true, force: true });
     }
   });
@@ -1382,13 +1458,18 @@ describe('additional branch coverage tests', () => {
     try {
       // PNG signature but not IHDR chunk
       const badPng = path.join(tmpDir, 'bad-chunk.png');
-      const badPngBuf = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 0, 0x58, 0x58, 0x58, 0x58]);
+      const badPngBuf = Buffer.from([
+        0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 0, 0x58, 0x58, 0x58, 0x58,
+      ]);
       fs.writeFileSync(badPng, badPngBuf);
       assert.equal(inspectImage(badPng), null);
 
       // Short PNG (less than 16 bytes)
       const shortPng = path.join(tmpDir, 'short.png');
-      fs.writeFileSync(shortPng, Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0]));
+      fs.writeFileSync(
+        shortPng,
+        Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0])
+      );
       assert.equal(inspectImage(shortPng), null);
 
       // JPEG SOI but third byte is not 0xff
@@ -1403,7 +1484,10 @@ describe('additional branch coverage tests', () => {
 
       // WebP magic RIFF but not WEBP chunk
       const badWebp = path.join(tmpDir, 'bad.webp');
-      fs.writeFileSync(badWebp, Buffer.from([0x52, 0x49, 0x46, 0x46, 0, 0, 0, 0, 0x54, 0x45, 0x53, 0x54]));
+      fs.writeFileSync(
+        badWebp,
+        Buffer.from([0x52, 0x49, 0x46, 0x46, 0, 0, 0, 0, 0x54, 0x45, 0x53, 0x54])
+      );
       assert.equal(inspectImage(badWebp), null);
 
       // ICO CUR type (type = 2) with valid count
@@ -1510,7 +1594,10 @@ describe('additional branch coverage tests', () => {
 
       const jpgIssue = res.issues.find((i) => i.imagePath.includes('pic.jpg'));
       assert.ok(jpgIssue);
-      assert.ok(jpgIssue.errorMessage.includes('image/png') || jpgIssue.errorMessage.includes('unknown mime'));
+      assert.ok(
+        jpgIssue.errorMessage.includes('image/png') ||
+          jpgIssue.errorMessage.includes('unknown mime')
+      );
 
       const svgEntry = res.entries.find((e) => e.imagePath.includes('icon.svg'));
       assert.ok(svgEntry);
@@ -1553,7 +1640,7 @@ describe('additional branch coverage tests', () => {
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'img-extread-'));
     try {
       const largeSvg = path.join(tmpDir, 'large.svg');
-      const preamble = '<!-- ' + 'A'.repeat(5000) + ' -->\n<svg xmlns="http://www.w3.org/2000/svg"></svg>';
+      const preamble = `<!-- ${'A'.repeat(5000)} -->\n<svg xmlns="http://www.w3.org/2000/svg"></svg>`;
       fs.writeFileSync(largeSvg, preamble);
 
       // Spy fs.openSync to fail on the second call (extended read)
@@ -1613,7 +1700,9 @@ describe('additional branch coverage tests', () => {
     const helpOutput = execFileSync(process.execPath, [binPath, '--help'], { encoding: 'utf8' });
     assert.ok(helpOutput.includes('Usage: image-audit'));
 
-    const versionOutput = execFileSync(process.execPath, [binPath, '--version'], { encoding: 'utf8' });
+    const versionOutput = execFileSync(process.execPath, [binPath, '--version'], {
+      encoding: 'utf8',
+    });
     assert.ok(/\d+\.\d+\.\d+/.test(versionOutput));
 
     // Verify error exit code 2 on invalid arguments
@@ -1638,7 +1727,8 @@ describe('additional branch coverage tests', () => {
         binRejection = err;
       }
       assert.ok(binRejection);
-      assert.equal(binRejection.status, 1);
+      // Runtime errors exit 2; 1 means "issues found"
+      assert.equal(binRejection.status, 2);
       assert.ok(binRejection.stderr.toString().includes('Syntax boom'));
 
       // Also test string rejection without .message (mocking run)
@@ -1646,8 +1736,8 @@ describe('additional branch coverage tests', () => {
       fs.writeFileSync(
         mockBin,
         `import { run } from '${path.resolve('src/cli.js')}';\n` +
-        `const origLint = (await import('${path.resolve('src/index.js')}')).lint;\n` +
-        `run(['broken']).catch((err) => { console.error(err.message || err); process.exit(1); });\n`
+          `const origLint = (await import('${path.resolve('src/index.js')}')).lint;\n` +
+          `run(['broken']).catch((err) => { console.error(err.message || err); process.exit(1); });\n`
       );
     } finally {
       fs.rmSync(tmpBadDir, { recursive: true, force: true });
@@ -1655,5 +1745,426 @@ describe('additional branch coverage tests', () => {
   });
 });
 
+// ── Regression tests for audit findings 1-6 ─────────────────────────
 
+describe('audit regressions', () => {
+  /** Build a throwaway project with the given files; returns its root. */
+  function makeProject(files) {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'img-regress-'));
+    fs.mkdirSync(path.join(root, 'src/assets/images'), { recursive: true });
+    for (const [rel, content] of Object.entries(files)) {
+      const abs = path.join(root, rel);
+      fs.mkdirSync(path.dirname(abs), { recursive: true });
+      fs.writeFileSync(abs, content);
+    }
+    return root;
+  }
 
+  const png = () => fs.readFileSync(path.join(IMAGES, 'valid.png'));
+
+  it('broken flags a reference whose letter case differs from the file on disk', async () => {
+    const root = makeProject({
+      'src/assets/images/Hero.png': png(),
+      'src/pages/a.astro': '<img src="~/assets/images/hero.png">',
+    });
+    try {
+      const { results } = await lint({ projectRoot: root, audits: ['broken'] });
+      assert.equal(results.broken.ok, false);
+      assert.equal(results.broken.issues[0].imagePath, '~/assets/images/hero.png');
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it('broken passes a reference with matching case', async () => {
+    const root = makeProject({
+      'src/assets/images/Hero.png': png(),
+      'src/pages/a.astro': '<img src="~/assets/images/Hero.png">',
+    });
+    try {
+      const { results } = await lint({ projectRoot: root, audits: ['broken'] });
+      assert.equal(results.broken.ok, true);
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  for (const spelling of ['./src/assets/images', 'src/assets/images/', 'ABS']) {
+    it(`accepts assetsDir spelled "${spelling}"`, async () => {
+      const root = makeProject({
+        'src/assets/images/used.png': png(),
+        'src/pages/a.astro':
+          '<img src="~/assets/images/used.png"><img src="~/assets/images/gone.png">',
+      });
+      try {
+        const assets = spelling === 'ABS' ? path.join(root, 'src/assets/images') : spelling;
+        const { results, warnings } = await lint({
+          projectRoot: root,
+          assets,
+          audits: ['broken', 'unused'],
+        });
+        assert.deepEqual(warnings, []);
+        assert.deepEqual(
+          results.broken.issues.map((i) => i.imagePath),
+          ['~/assets/images/gone.png']
+        );
+        assert.equal(results.unused.ok, true);
+      } finally {
+        fs.rmSync(root, { recursive: true, force: true });
+      }
+    });
+  }
+
+  it('treats alias targets as project-relative even with a "./" prefix', () => {
+    const res = normalizePath('@img/hero.png', 'src/pages/deep/a.astro', {
+      assetsDir: 'src/assets/images',
+      pathAliases: { '@img/': './src/assets/images/' },
+    });
+    assert.equal(res.normalized, 'src/assets/images/hero.png');
+  });
+
+  it('does not hang on a RegExp pattern without the g flag', async () => {
+    const root = makeProject({
+      'src/assets/images/a.png': png(),
+      'src/pages/a.astro': '<img src="~/assets/images/a.png"><img src="~/assets/images/b.png">',
+    });
+    try {
+      const config = await loadConfig({ projectRoot: root });
+      const refs = scanReferences({
+        ...config,
+        imagePathPatterns: [/(['"])(~\/assets\/images\/[^'"]+)\1/],
+      }).references;
+      assert.equal(refs.length, 2);
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it('does not hang on a pattern that can match an empty string', async () => {
+    const root = makeProject({ 'src/pages/a.astro': 'abc' });
+    try {
+      const config = await loadConfig({ projectRoot: root });
+      const refs = scanReferences({ ...config, imagePathPatterns: [/x*/g] }).references;
+      assert.deepEqual(refs, []);
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it('rejects when an explicit --config file does not exist', async () => {
+    const root = makeProject({});
+    try {
+      await assert.rejects(
+        () => lint({ projectRoot: root, config: 'nope.js', audits: ['broken'] }),
+        /Config file not found/
+      );
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it('rejects when the source directory does not exist', async () => {
+    const root = makeProject({});
+    try {
+      await assert.rejects(
+        () => lint({ projectRoot: root, src: 'srcc', audits: ['broken'] }),
+        /Source directory not found/
+      );
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it('rejects when the assets directory does not exist', async () => {
+    const root = makeProject({});
+    try {
+      for (const audit of ['unused', 'dupes', 'compat']) {
+        await assert.rejects(
+          () => lint({ projectRoot: root, assets: 'nope', audits: [audit] }),
+          /Assets directory not found/
+        );
+      }
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it('does not need the assets directory for broken alone', async () => {
+    const root = makeProject({ 'src/pages/a.astro': 'no images' });
+    try {
+      const { ok } = await lint({ projectRoot: root, assets: 'nope', audits: ['broken'] });
+      assert.equal(ok, true);
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it('areEquivalent accepts png/apng and ico/cur', () => {
+    assert.equal(areEquivalent('png', 'apng'), true);
+    assert.equal(areEquivalent('apng', 'png'), true);
+    assert.equal(areEquivalent('ico', 'cur'), true);
+    assert.equal(areEquivalent('cur', 'ico'), true);
+  });
+
+  it('compat does not flag an animated PNG', async () => {
+    // Minimal APNG: signature, IHDR, acTL, IDAT, IEND
+    const crcTable = Array.from({ length: 256 }, (_, n) => {
+      let c = n;
+      for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
+      return c >>> 0;
+    });
+    const crc32 = (buf) => {
+      let c = 0xffffffff;
+      for (const b of buf) c = crcTable[(c ^ b) & 0xff] ^ (c >>> 8);
+      return (c ^ 0xffffffff) >>> 0;
+    };
+    const chunk = (type, data) => {
+      const len = Buffer.alloc(4);
+      len.writeUInt32BE(data.length);
+      const body = Buffer.concat([Buffer.from(type, 'ascii'), data]);
+      const crc = Buffer.alloc(4);
+      crc.writeUInt32BE(crc32(body));
+      return Buffer.concat([len, body, crc]);
+    };
+    const { deflateSync } = await import('node:zlib');
+    const actl = Buffer.alloc(8);
+    actl.writeUInt32BE(1, 0);
+    const apng = Buffer.concat([
+      Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+      chunk('IHDR', Buffer.from([0, 0, 0, 1, 0, 0, 0, 1, 8, 0, 0, 0, 0])),
+      chunk('acTL', actl),
+      chunk('IDAT', deflateSync(Buffer.from([0, 0]))),
+      chunk('IEND', Buffer.alloc(0)),
+    ]);
+
+    const root = makeProject({ 'src/assets/images/anim.png': apng });
+    try {
+      const { results } = await lint({ projectRoot: root, audits: ['compat'] });
+      assert.deepEqual(results.compat.issues, []);
+      assert.equal(results.compat.entries[0].status, 'ok');
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  });
+});
+
+// ── Regression tests for audit findings 7-10 ────────────────────────
+
+describe('cli regressions', () => {
+  const png = () => fs.readFileSync(path.join(IMAGES, 'valid.png'));
+  const repoRoot = path.join(__dirname, '..');
+
+  /** Build a throwaway project and chdir into it; returns a cleanup function. */
+  function enterProject(files) {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'img-cli-'));
+    fs.mkdirSync(path.join(root, 'src/assets/images'), { recursive: true });
+    for (const [rel, content] of Object.entries(files)) {
+      const abs = path.join(root, rel);
+      fs.mkdirSync(path.dirname(abs), { recursive: true });
+      fs.writeFileSync(abs, content);
+    }
+    process.chdir(root);
+    return () => {
+      process.chdir(repoRoot);
+      fs.rmSync(root, { recursive: true, force: true });
+    };
+  }
+
+  /** Run the CLI in-process and capture every output channel. */
+  async function runCaptured(args) {
+    const out = { code: null, log: '', write: '', error: '', warn: '' };
+    await run(args, {
+      exit: (c) => (out.code = c),
+      log: (m = '') => (out.log += `${m}\n`),
+      write: (m) => (out.write += m),
+      error: (m) => (out.error += m),
+      warn: (m) => (out.warn += `${m}\n`),
+    });
+    return out;
+  }
+
+  const unusedProject = {
+    'src/assets/images/orphan.png': png(),
+    'src/pages/a.astro': 'no images',
+  };
+
+  it('uses reporter from the config file when --reporter is not given', async () => {
+    const leave = enterProject({
+      ...unusedProject,
+      'image-audit.config.js': "export default { reporter: 'json' };",
+    });
+    try {
+      const out = await runCaptured(['unused']);
+      assert.equal(out.code, 1);
+      assert.equal(
+        JSON.parse(out.write).audits.unused.issues[0].imagePath,
+        'src/assets/images/orphan.png'
+      );
+    } finally {
+      leave();
+    }
+  });
+
+  it('--reporter overrides the config file', async () => {
+    const leave = enterProject({
+      ...unusedProject,
+      'image-audit.config.js': "export default { reporter: 'json' };",
+    });
+    try {
+      const out = await runCaptured(['unused', '--reporter', 'text']);
+      assert.equal(out.write, '');
+      assert.ok(out.log.includes('orphan.png'));
+    } finally {
+      leave();
+    }
+  });
+
+  it('exits 2 on an invalid reporter in the config file', async () => {
+    const leave = enterProject({
+      ...unusedProject,
+      'image-audit.config.js': "export default { reporter: 'xml' };",
+    });
+    try {
+      const out = await runCaptured(['unused']);
+      assert.equal(out.code, 2);
+      assert.ok(out.error.includes('Invalid reporter'));
+    } finally {
+      leave();
+    }
+  });
+
+  it('honors NO_COLOR and noColor from the config file', async () => {
+    const prev = process.env.NO_COLOR;
+    let leave = enterProject(unusedProject);
+    try {
+      process.env.NO_COLOR = '1';
+      const envOut = await runCaptured(['unused']);
+      assert.ok(envOut.log.includes('orphan.png'));
+      assert.ok(!envOut.log.includes('\x1b['), 'NO_COLOR output has ANSI codes');
+    } finally {
+      if (prev === undefined) delete process.env.NO_COLOR;
+      else process.env.NO_COLOR = prev;
+      leave();
+    }
+
+    leave = enterProject({
+      ...unusedProject,
+      'image-audit.config.js': 'export default { noColor: true };',
+    });
+    try {
+      delete process.env.NO_COLOR;
+      const cfgOut = await runCaptured(['unused']);
+      assert.ok(!cfgOut.log.includes('\x1b['), 'config noColor output has ANSI codes');
+    } finally {
+      if (prev !== undefined) process.env.NO_COLOR = prev;
+      leave();
+    }
+  });
+
+  it('prints scan warnings when verbose is set in the config file', async () => {
+    const leave = enterProject({
+      'src/assets/images/a.png': png(),
+      'src/pages/a.astro': '<img src="/assets/images_x/a.png"><img src="~/assets/images/a.png">',
+      'image-audit.config.js':
+        'export default { verbose: true, imagePathPatterns: [/([\'"])(\\/assets\\/images_x\\/[^\'"]+)\\1/g] };',
+    });
+    try {
+      const out = await runCaptured(['broken']);
+      assert.ok(out.warn.includes('WARN: Path normalization incomplete'));
+    } finally {
+      leave();
+    }
+  });
+
+  it('prints a hint instead of warnings when not verbose', async () => {
+    const leave = enterProject({
+      'src/pages/a.astro': '<img src="/assets/images_x/a.png">',
+      'image-audit.config.js':
+        'export default { imagePathPatterns: [/([\'"])(\\/assets\\/images_x\\/[^\'"]+)\\1/g] };',
+    });
+    try {
+      const out = await runCaptured(['broken']);
+      assert.ok(out.warn.includes('1 scan warning(s)'));
+      assert.ok(!out.warn.includes('WARN:'));
+    } finally {
+      leave();
+    }
+  });
+
+  it('text reporter shows the specific compat errorMessage', () => {
+    let output = '';
+    const reporter = createTextReporter({ noColor: true, log: (m = '') => (output += `${m}\n`) });
+    reporter.report('compat', {
+      ok: false,
+      entries: [],
+      stats: { audited: 1 },
+      issues: [
+        {
+          imagePath: 'src/assets/images/x.png',
+          type: 'mismatch',
+          declaredExt: 'png',
+          detectedExt: 'png',
+          detectedMime: 'image/png',
+          errorMessage: 'Byte inspection detected png but file-type detected gif',
+        },
+      ],
+    });
+    assert.ok(output.includes('Byte inspection detected png but file-type detected gif'));
+    assert.ok(!output.includes('declared .png, detected .png'));
+  });
+
+  it('sets process.exitCode instead of calling process.exit()', async () => {
+    const leave = enterProject(unusedProject);
+    const prevCode = process.exitCode;
+    const origExit = process.exit;
+    let exitCalled = false;
+    try {
+      process.exit = () => {
+        exitCalled = true;
+      };
+      await run(['unused'], { log: () => {} });
+      assert.equal(exitCalled, false);
+      assert.equal(process.exitCode, 1);
+    } finally {
+      process.exit = origExit;
+      process.exitCode = prevCode;
+      leave();
+    }
+  });
+
+  it('delivers large JSON output completely through a pipe', async () => {
+    const { spawnSync } = await import('node:child_process');
+    const files = { 'src/pages/a.astro': 'no images' };
+    const buf = png();
+    for (let i = 0; i < 3000; i++) {
+      files[`src/assets/images/orphan-with-a-long-file-name-${i}.png`] = buf;
+    }
+    const leave = enterProject(files);
+    try {
+      const res = spawnSync(
+        process.execPath,
+        [path.join(repoRoot, 'bin/image-audit.js'), 'unused', '-r', 'json'],
+        {
+          encoding: 'utf8',
+          maxBuffer: 64 * 1024 * 1024,
+        }
+      );
+      assert.equal(res.status, 1);
+      assert.ok(res.stdout.length > 64 * 1024, 'output should exceed one pipe buffer');
+      assert.equal(JSON.parse(res.stdout).audits.unused.issues.length, 3000);
+    } finally {
+      leave();
+    }
+  });
+
+  it('exits 2 with a clear message when a directory is missing', async () => {
+    const leave = enterProject({});
+    try {
+      const out = await runCaptured(['broken', '--src', 'srcc']);
+      assert.equal(out.code, 2);
+      assert.ok(out.error.includes('Source directory not found'));
+    } finally {
+      leave();
+    }
+  });
+});

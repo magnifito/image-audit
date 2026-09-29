@@ -18,6 +18,10 @@ export function areEquivalent(ext1, ext2) {
   if ((ext1 === 'jpg' && ext2 === 'jpeg') || (ext1 === 'jpeg' && ext2 === 'jpg')) return true;
   // SVG is XML-based — file-type detects SVGs as application/xml
   if ((ext1 === 'svg' && ext2 === 'xml') || (ext1 === 'xml' && ext2 === 'svg')) return true;
+  // Animated PNG is a valid PNG — file-type reports it as apng
+  if ((ext1 === 'png' && ext2 === 'apng') || (ext1 === 'apng' && ext2 === 'png')) return true;
+  // CUR shares the ICO container — our inspector reports both as ico
+  if ((ext1 === 'ico' && ext2 === 'cur') || (ext1 === 'cur' && ext2 === 'ico')) return true;
   return false;
 }
 
@@ -70,9 +74,7 @@ export async function auditCompat(config) {
 
       // 2. Secondary: file-type library cross-check (skip for SVG — it can't detect text formats)
       const ftFn = config._fileTypeFromFile || fileTypeFromFile;
-      const ftResult = inspection?.format !== 'svg'
-        ? await ftFn(imagePath)
-        : null;
+      const ftResult = inspection?.format !== 'svg' ? await ftFn(imagePath) : null;
 
       // Determine the detected format — prefer our inspection, fall back to file-type
       const detectedExt = inspection?.ext ?? ftResult?.ext ?? null;
@@ -109,7 +111,12 @@ export async function auditCompat(config) {
 
       // Cross-check: if both our inspector and file-type detected something,
       // flag when they disagree (possible corruption or polyglot file)
-      if (inspection && ftResult && inspection.ext !== ftResult.ext && !areEquivalent(inspection.ext, ftResult.ext)) {
+      if (
+        inspection &&
+        ftResult &&
+        inspection.ext !== ftResult.ext &&
+        !areEquivalent(inspection.ext, ftResult.ext)
+      ) {
         entry.status = 'mismatch';
         entry.errorMessage = `Byte inspection detected ${inspection.ext} but file-type detected ${ftResult.ext}`;
         issues.push({ ...entry, type: 'mismatch' });

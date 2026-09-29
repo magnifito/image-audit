@@ -11,7 +11,7 @@ export function createReporter({ write = (s) => process.stdout.write(s) } = {}) 
 
     summary() {
       const allOk = Object.values(results).every((r) => r.ok);
-      write(JSON.stringify({ ok: allOk, audits: results }, null, 2) + '\n');
+      write(`${JSON.stringify({ ok: allOk, audits: results }, null, 2)}\n`);
     },
   };
 }

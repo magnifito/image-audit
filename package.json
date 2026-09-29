@@ -1,6 +1,6 @@
 {
   "name": "@puralex/image-audit",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Lint and audit image references in web projects — find broken links, unused images, duplicates, format mismatches, and overused assets.",
   "type": "module",
   "license": "MIT",
@@ -16,7 +16,9 @@
   "scripts": {
     "generate-fixtures": "node test/generate-fixtures.js",
     "test": "node test/generate-fixtures.js && node --test test/run.js",
-    "test:coverage": "node test/generate-fixtures.js && node --test --experimental-test-coverage test/run.js"
+    "test:coverage": "node test/generate-fixtures.js && node --test --experimental-test-coverage test/run.js",
+    "lint": "biome ci .",
+    "format": "biome check --write ."
   },
   "engines": {
     "node": ">=20.0.0"
@@ -33,7 +35,8 @@
   "files": [
     "bin/",
     "src/",
-    "types/"
+    "types/",
+    "CHANGELOG.md"
   ],
   "types": "./types/index.d.ts",
   "keywords": [
@@ -58,5 +61,8 @@
     "sharp": {
       "optional": true
     }
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.5.14"
   }
 }

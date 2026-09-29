@@ -26,12 +26,21 @@ Options:
   -v, --version         Show version
 `.trim();
 
+const VALID_REPORTERS = new Set(['text', 'json']);
+
 /**
+ * Exit codes: 0 = no issues, 1 = issues found, 2 = usage or runtime error.
+ *
  * @param {string[]} args - process.argv.slice(2)
- * @param {{ exit?: Function, log?: Function, error?: Function, warn?: Function }} [io]
+ * @param {{ exit?: Function, log?: Function, error?: Function, warn?: Function, write?: Function }} [io]
  */
 export async function run(args, io = {}) {
-  const exit = io.exit || process.exit;
+  // Set exitCode instead of calling process.exit() so piped stdout is fully flushed
+  const exit =
+    io.exit ||
+    ((code) => {
+      process.exitCode = code;
+    });
   const log = io.log || console.log;
   const error = io.error || console.error;
   const warn = io.warn || console.warn;
@@ -45,7 +54,8 @@ export async function run(args, io = {}) {
         config: { type: 'string', short: 'c' },
         assets: { type: 'string', short: 'a' },
         src: { type: 'string', short: 's' },
-        reporter: { type: 'string', short: 'r', default: 'text' },
+        // No default: an unset flag must not override the config file
+        reporter: { type: 'string', short: 'r' },
         'no-color': { type: 'boolean', default: false },
         verbose: { type: 'boolean', default: false },
         help: { type: 'boolean', short: 'h', default: false },
@@ -75,10 +85,8 @@ export async function run(args, io = {}) {
     return;
   }
 
-  const VALID_REPORTERS = new Set(['text', 'json']);
-  const reporterName = values.reporter;
-  if (!VALID_REPORTERS.has(reporterName)) {
-    error(`Invalid reporter: "${reporterName}". Valid options: text, json\n\n${HELP}`);
+  if (values.reporter !== undefined && !VALID_REPORTERS.has(values.reporter)) {
+    error(`Invalid reporter: "${values.reporter}". Valid options: text, json\n\n${HELP}`);
     exit(2);
     return;
   }
@@ -97,26 +105,38 @@ export async function run(args, io = {}) {
     ? ALL_AUDITS
     : Array.from(new Set(rawSubcommands.map((cmd) => (cmd === 'duplicates' ? 'dupes' : cmd))));
 
-  // Run lint
-  const { ok, results, warnings } = await lint({ audits, ...values });
+  let lintResult;
+  try {
+    lintResult = await lint({ audits, ...values });
+  } catch (err) {
+    // Runtime errors (bad config, missing directory) must not look like "issues found"
+    error(`Error: ${err.message}`);
+    exit(2);
+    return;
+  }
+  const { ok, results, warnings, config } = lintResult;
 
-  // Print scan warnings in verbose mode
-  if (values.verbose && warnings.length > 0) {
-    for (const w of warnings) {
-      warn(`WARN: ${w}`);
+  // Scan warnings: full list in verbose mode, a hint otherwise
+  if (warnings.length > 0) {
+    if (config.verbose) {
+      for (const w of warnings) {
+        warn(`WARN: ${w}`);
+      }
+    } else {
+      warn(`${warnings.length} scan warning(s) — rerun with --verbose to see them.`);
     }
   }
 
-  // Select reporter
+  // Select reporter from the resolved config (CLI flags > config file > defaults)
   let reporter;
-  if (reporterName === 'json') {
+  if (config.reporter === 'json') {
     const { createReporter } = await import('./reporters/json.js');
     reporter = createReporter({ write: io.write });
   } else {
     const { createReporter } = await import('./reporters/text.js');
     reporter = createReporter({
-      noColor: values['no-color'],
-      verbose: values.verbose,
+      noColor: config.noColor,
+      verbose: config.verbose,
       log,
     });
   }

@@ -41,11 +41,12 @@ export function scanReferences(config) {
     }
 
     for (const pattern of imagePathPatterns) {
-      // Clone regex to reset lastIndex per file
-      const regex = new RegExp(pattern.source, pattern.flags);
-      let match;
+      // matchAll() requires the g flag and steps past zero-length matches on its own
+      const flags = pattern.flags.includes('g') ? pattern.flags : `${pattern.flags}g`;
+      const regex = new RegExp(pattern.source, flags);
 
-      while ((match = regex.exec(content)) !== null) {
+      for (const match of content.matchAll(regex)) {
+        if (match[0] === '') continue;
         const rawPath = match[2] || match[1] || match[0];
         const { normalized, warning } = normalizePath(rawPath, sourceFileRelative, config);
 

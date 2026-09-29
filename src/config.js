@@ -35,6 +35,10 @@ export async function loadConfig(cliOptions = {}) {
     ? path.resolve(projectRoot, cliOptions.config)
     : path.join(projectRoot, 'image-audit.config.js');
 
+  if (cliOptions.config && !fs.existsSync(configPath)) {
+    throw new Error(`Config file not found: ${configPath}`);
+  }
+
   if (fs.existsSync(configPath)) {
     try {
       const mod = await import(pathToFileURL(configPath).href);
@@ -66,8 +70,12 @@ export async function loadConfig(cliOptions = {}) {
   if (cliOptions.noColor || cliOptions['no-color']) merged.noColor = true;
   if (cliOptions.verbose) merged.verbose = true;
 
-  // Respect NO_COLOR env convention
-  if (process.env.NO_COLOR !== undefined) merged.noColor = true;
+  // Respect NO_COLOR env convention (any non-empty value, per no-color.org)
+  if (process.env.NO_COLOR) merged.noColor = true;
+
+  if (merged.reporter !== 'text' && merged.reporter !== 'json') {
+    throw new Error(`Invalid reporter: "${merged.reporter}". Valid options: text, json`);
+  }
 
   // Resolve absolute paths
   merged.srcDirAbsolute = path.resolve(merged.projectRoot, merged.srcDir);

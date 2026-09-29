@@ -84,7 +84,21 @@ export interface CompatAuditResult extends AuditResult<CompatIssue> {
   stats: { audited: number };
 }
 
-export function loadConfig(cliOptions?: Partial<Config>): Promise<Config>;
+export interface ConfigOptions extends Partial<Config> {
+  /** Config file path, relative to projectRoot. */
+  config?: string;
+  /** Source directory override (same as --src). */
+  src?: string;
+  /** Assets directory override (same as --assets). */
+  assets?: string;
+}
+
+/**
+ * Load and merge config: defaults < config file (or package.json#imageAudit) < options.
+ * Rejects when an explicit `config` file does not exist or fails to load,
+ * or when `reporter` is not 'text' or 'json'.
+ */
+export function loadConfig(cliOptions?: ConfigOptions): Promise<Config>;
 export function scanReferences(config: Config): ScanResult;
 export function findFiles(
   startPath: string,
@@ -102,7 +116,7 @@ export function auditDuplicates(config: Config): AuditResult<DuplicateIssue>;
 export function auditCompat(config: Config): Promise<CompatAuditResult>;
 export function auditOveruse(config: Config, scanResult: ScanResult): AuditResult<OveruseIssue>;
 
-export interface LintOptions extends Partial<Config> {
+export interface LintOptions extends ConfigOptions {
   audits?: Array<'broken' | 'unused' | 'dupes' | 'duplicates' | 'compat' | 'overuse'>;
 }
 
@@ -116,8 +130,15 @@ export interface LintResult {
     overuse?: AuditResult<OveruseIssue>;
   };
   warnings: string[];
+  /** The resolved config the audits ran with. */
+  config: Config;
 }
 
+/**
+ * Run the selected audits.
+ * Rejects on the same errors as loadConfig(), and when the source directory
+ * (broken, unused, overuse) or assets directory (unused, dupes, compat) does not exist.
+ */
 export function lint(options?: LintOptions): Promise<LintResult>;
 
 export interface ImageInspection {
