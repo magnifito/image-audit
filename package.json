@@ -1,6 +1,6 @@
 {
   "name": "@puralex/image-audit",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Lint and audit image references in web projects — find broken links, unused images, duplicates, format mismatches, and overused assets.",
   "type": "module",
   "license": "MIT",

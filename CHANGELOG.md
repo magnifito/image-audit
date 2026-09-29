@@ -5,7 +5,16 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [0.3.1] — 2026-09-29
+
+### Fixed
+
+- The `image-audit` command is installed again. npm 11 dropped the `bin` entry written as `./bin/image-audit.js` during publish; the path is now `bin/image-audit.js` and the script is executable.
+
 ## [0.3.0] — 2026-09-29
+
+Tagged on GitHub but never published to npm (the publish failed). Use 0.3.1, which contains all of these changes.
+
 
 ### Breaking
 
@@ -81,7 +90,8 @@ First release.
 - TypeScript types.
 - README, CI workflow, and npm publish workflow.
 
-[Unreleased]: https://github.com/magnifito/image-audit/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/magnifito/image-audit/compare/v0.3.1...HEAD
+[0.3.1]: https://github.com/magnifito/image-audit/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/magnifito/image-audit/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/magnifito/image-audit/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/magnifito/image-audit/releases/tag/v0.1.0
