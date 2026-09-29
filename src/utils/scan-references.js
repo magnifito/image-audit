@@ -46,7 +46,7 @@ export function scanReferences(config) {
       let match;
 
       while ((match = regex.exec(content)) !== null) {
-        const rawPath = match[2];
+        const rawPath = match[2] || match[1] || match[0];
         const { normalized, warning } = normalizePath(rawPath, sourceFileRelative, config);
 
         if (warning) warnings.push(warning);

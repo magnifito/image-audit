@@ -41,11 +41,13 @@ export async function lint(options = {}) {
 
   const config = await loadConfig(configOverrides);
 
-  const needsScan = audits.some((a) => NEEDS_SCAN.has(a));
+  const normalizedAudits = audits.map((a) => (a === 'duplicates' ? 'dupes' : a));
+
+  const needsScan = normalizedAudits.some((a) => NEEDS_SCAN.has(a));
   const scanResult = needsScan ? scanReferences(config) : null;
 
   const results = {};
-  for (const name of audits) {
+  for (const name of normalizedAudits) {
     const fn = AUDIT_FNS[name];
     if (!fn) throw new Error(`Unknown audit: "${name}"`);
     results[name] = NEEDS_SCAN.has(name)

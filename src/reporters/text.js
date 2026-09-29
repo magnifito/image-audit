@@ -18,9 +18,9 @@ function formatSize(bytes) {
 }
 
 /**
- * @param {{ noColor?: boolean, verbose?: boolean }} options
+ * @param {{ noColor?: boolean, verbose?: boolean, log?: Function }} [options]
  */
-export function createReporter({ noColor = false, verbose = false } = {}) {
+export function createReporter({ noColor = false, verbose = false, log = console.log } = {}) {
   const c = noColor ? NO_COLORS : COLORS;
   const allResults = {};
 
@@ -29,11 +29,11 @@ export function createReporter({ noColor = false, verbose = false } = {}) {
       allResults[auditName] = result;
 
       const formatters = {
-        broken: () => reportBroken(c, result),
-        unused: () => reportUnused(c, result),
-        dupes: () => reportDupes(c, result),
-        compat: () => reportCompat(c, result, verbose),
-        overuse: () => reportOveruse(c, result),
+        broken: () => reportBroken(c, result, log),
+        unused: () => reportUnused(c, result, log),
+        dupes: () => reportDupes(c, result, log),
+        compat: () => reportCompat(c, result, verbose, log),
+        overuse: () => reportOveruse(c, result, log),
       };
 
       const formatter = formatters[auditName];
@@ -43,71 +43,71 @@ export function createReporter({ noColor = false, verbose = false } = {}) {
     summary() {
       const allOk = Object.values(allResults).every((r) => r.ok);
       if (allOk && Object.keys(allResults).length > 1) {
-        console.log(`\n${c.bright}${c.green}All audits passed.${c.reset}`);
+        log(`\n${c.bright}${c.green}All audits passed.${c.reset}`);
       }
     },
   };
 }
 
-function reportBroken(c, result) {
+function reportBroken(c, result, log) {
   if (result.issues.length === 0) {
-    console.log(`${c.bright}${c.green}No broken image references found.${c.reset}`);
+    log(`${c.bright}${c.green}No broken image references found.${c.reset}`);
     return;
   }
 
   const grouped = groupBy(result.issues, 'sourceFile');
   const fileCount = Object.keys(grouped).length;
-  console.error(
+  log(
     `\n${c.bright}${c.red}Found ${result.issues.length} broken image link(s) in ${fileCount} file(s):${c.reset}`
   );
 
   for (const [sourceFile, links] of Object.entries(grouped)) {
-    console.error(`\n  ${c.bright}${c.cyan}${sourceFile}${c.reset}`);
+    log(`\n  ${c.bright}${c.cyan}${sourceFile}${c.reset}`);
     for (const link of links) {
-      console.error(`    ${c.cyan}${link.sourceFile}:${link.lineNumber}${c.reset}`);
-      console.error(`      ${c.yellow}${link.imagePath}${c.reset}`);
+      log(`    ${c.cyan}${link.sourceFile}:${link.lineNumber}${c.reset}`);
+      log(`      ${c.yellow}${link.imagePath}${c.reset}`);
     }
   }
 }
 
-function reportUnused(c, result) {
+function reportUnused(c, result, log) {
   if (result.issues.length === 0) {
-    console.log(`${c.bright}${c.green}No unused images found.${c.reset}`);
+    log(`${c.bright}${c.green}No unused images found.${c.reset}`);
     return;
   }
 
-  console.error(
+  log(
     `\n${c.bright}${c.yellow}Found ${result.issues.length} potentially unused image(s):${c.reset}`
   );
   for (const issue of result.issues) {
-    console.log(`  ${c.magenta}${issue.imagePath}${c.reset}`);
+    log(`  ${c.magenta}${issue.imagePath}${c.reset}`);
   }
 }
 
-function reportDupes(c, result) {
+function reportDupes(c, result, log) {
   if (result.issues.length === 0) {
-    console.log(`${c.bright}${c.green}No duplicate images found.${c.reset}`);
+    log(`${c.bright}${c.green}No duplicate images found.${c.reset}`);
     return;
   }
 
-  console.error(
+  log(
     `\n${c.bright}${c.red}Found ${result.issues.length} set(s) of duplicate images:${c.reset}`
   );
   for (const issue of result.issues) {
-    console.error(
+    log(
       `\n  ${c.yellow}Duplicate set (Hash: ${issue.hash.substring(0, 12)}...):${c.reset}`
     );
     for (const file of issue.files) {
-      console.log(`    - ${c.magenta}${file}${c.reset}`);
+      log(`    - ${c.magenta}${file}${c.reset}`);
     }
   }
 }
 
-function reportCompat(c, result, verbose) {
+function reportCompat(c, result, verbose, log) {
   const { entries, stats } = result;
 
   if (verbose && entries) {
-    console.log(`${c.bright}Image compatibility report (${stats.audited} checked):${c.reset}\n`);
+    log(`${c.bright}Image compatibility report (${stats.audited} checked):${c.reset}\n`);
 
     for (const entry of entries) {
       const statusTag = {
@@ -132,17 +132,17 @@ function reportCompat(c, result, verbose) {
 
       if (entry.errorMessage) parts.push(entry.errorMessage);
 
-      console.log(`  ${c.cyan}${entry.imagePath}${c.reset} ${parts.join(' | ')}`);
+      log(`  ${c.cyan}${entry.imagePath}${c.reset} ${parts.join(' | ')}`);
     }
-    console.log();
+    log();
   }
 
   if (result.issues.length === 0) {
-    console.log(
+    log(
       `${c.bright}${c.green}All ${stats.audited} image(s) have compatible extensions and binary formats.${c.reset}`
     );
   } else {
-    console.error(
+    log(
       `\n${c.bright}${c.red}Found ${result.issues.length} image(s) with issues out of ${stats.audited} checked:${c.reset}`
     );
     for (const issue of result.issues) {
@@ -151,26 +151,26 @@ function reportCompat(c, result, verbose) {
         issue.type === 'mismatch'
           ? `declared .${issue.declaredExt}, detected .${issue.detectedExt} (${issue.detectedMime})`
           : issue.errorMessage || 'Could not detect binary format';
-      console.error(`  ${c.red}${tag}${c.reset} ${c.cyan}${issue.imagePath}${c.reset} — ${detail}`);
+      log(`  ${c.red}${tag}${c.reset} ${c.cyan}${issue.imagePath}${c.reset} — ${detail}`);
     }
   }
 }
 
-function reportOveruse(c, result) {
+function reportOveruse(c, result, log) {
   if (result.issues.length === 0) {
-    console.log(`${c.bright}${c.green}No overused images found.${c.reset}`);
+    log(`${c.bright}${c.green}No overused images found.${c.reset}`);
     return;
   }
 
-  console.error(
+  log(
     `\n${c.bright}${c.yellow}Found ${result.issues.length} image(s) referenced multiple times:${c.reset}`
   );
   for (const issue of result.issues) {
-    console.error(
+    log(
       `\n  ${c.bright}${c.magenta}${issue.originalPath}${c.reset} — ${issue.usages.length} references:`
     );
     for (const usage of issue.usages) {
-      console.error(`    ${c.cyan}${usage.sourceFile}:${usage.lineNumber}${c.reset}`);
+      log(`    ${c.cyan}${usage.sourceFile}:${usage.lineNumber}${c.reset}`);
     }
   }
 }

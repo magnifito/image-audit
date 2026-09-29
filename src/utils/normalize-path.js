@@ -30,14 +30,25 @@ export function normalizePath(rawPath, sourceFileRelative, config) {
   // Ensure POSIX separators
   normalized = normalized.replace(/\\/g, '/');
 
+  // Strip query parameters and hash fragments (e.g. ?v=1, ?url, #icon)
+  const queryOrHashIndex = normalized.search(/[?#]/);
+  if (queryOrHashIndex !== -1) {
+    normalized = normalized.slice(0, queryOrHashIndex);
+  }
+
+  const isWithinAssets = normalized === assetsDir || normalized.startsWith(assetsDir + '/');
+
   // Check if it resolves within the assets dir
-  if (!normalized.startsWith(assetsDir + '/') && !normalized.startsWith(assetsDir)) {
+  if (!isWithinAssets) {
     // Could be an external URL or unresolvable path
     if (!path.isAbsolute(rawPath) && rawPath.includes('/')) {
-      const resolvedRelative = path
+      let resolvedRelative = path
         .normalize(path.join(path.dirname(sourceFileRelative), rawPath))
         .replace(/\\/g, '/');
-      if (resolvedRelative.startsWith(assetsDir)) {
+      const cleanIdx = resolvedRelative.search(/[?#]/);
+      if (cleanIdx !== -1) resolvedRelative = resolvedRelative.slice(0, cleanIdx);
+
+      if (resolvedRelative === assetsDir || resolvedRelative.startsWith(assetsDir + '/')) {
         return { normalized: resolvedRelative, warning: null };
       }
     }

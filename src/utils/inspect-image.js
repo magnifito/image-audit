@@ -143,6 +143,28 @@ function inspectSvg(buf) {
   };
 }
 
+function readPrefix(filePath, maxSize) {
+  let fd;
+  try {
+    fd = fs.openSync(filePath, 'r');
+    const fileSize = fs.fstatSync(fd).size;
+    const readSize = Math.min(fileSize, maxSize);
+    const buf = Buffer.alloc(readSize);
+    fs.readSync(fd, buf, 0, readSize);
+    return { buf, fileSize };
+  } catch {
+    return null;
+  } finally {
+    if (fd !== undefined) {
+      try {
+        fs.closeSync(fd);
+      } catch {
+        // Ignore close errors
+      }
+    }
+  }
+}
+
 /**
  * Inspect a file's raw bytes to determine its actual image format
  * and validate structural integrity for web use.
@@ -151,22 +173,10 @@ function inspectSvg(buf) {
  * @returns {{ ext: string, mime: string, valid: boolean, format: string } | null}
  */
 export function inspectImage(filePath) {
-  let fd;
-  let fileSize;
-  let buf;
-  try {
-    fd = fs.openSync(filePath, 'r');
-    fileSize = fs.fstatSync(fd).size;
-    const readSize = Math.min(fileSize, 4096);
-    buf = Buffer.alloc(readSize);
-    fs.readSync(fd, buf, 0, readSize);
-    fs.closeSync(fd);
-    fd = undefined;
-  } catch {
-    return null;
-  }
+  const initial = readPrefix(filePath, 4096);
+  if (!initial || initial.buf.length === 0) return null;
 
-  if (buf.length === 0) return null;
+  const { buf, fileSize } = initial;
 
   // Try binary formats first (magic bytes in first 4 KB is always enough)
   for (const fmt of WEB_FORMATS) {
@@ -179,15 +189,8 @@ export function inspectImage(filePath) {
   // (XML declarations, processing instructions, comments) can be long
   let svgBuf = buf;
   if (fileSize > 4096 && !buf.includes(0x00)) {
-    try {
-      fd = fs.openSync(filePath, 'r');
-      const readSize = Math.min(fileSize, 65536);
-      svgBuf = Buffer.alloc(readSize);
-      fs.readSync(fd, svgBuf, 0, readSize);
-      fs.closeSync(fd);
-    } catch {
-      // Fall through with the original buffer
-    }
+    const extended = readPrefix(filePath, 65536);
+    if (extended) svgBuf = extended.buf;
   }
 
   const svgResult = inspectSvg(svgBuf);

@@ -1,7 +1,7 @@
 /**
  * JSON reporter — buffers all results and emits a single JSON document at the end.
  */
-export function createReporter() {
+export function createReporter({ write = (s) => process.stdout.write(s) } = {}) {
   const results = {};
 
   return {
@@ -11,7 +11,7 @@ export function createReporter() {
 
     summary() {
       const allOk = Object.values(results).every((r) => r.ok);
-      process.stdout.write(JSON.stringify({ ok: allOk, audits: results }, null, 2) + '\n');
+      write(JSON.stringify({ ok: allOk, audits: results }, null, 2) + '\n');
     },
   };
 }

@@ -28,8 +28,14 @@ Options:
 
 /**
  * @param {string[]} args - process.argv.slice(2)
+ * @param {{ exit?: Function, log?: Function, error?: Function, warn?: Function }} [io]
  */
-export async function run(args) {
+export async function run(args, io = {}) {
+  const exit = io.exit || process.exit;
+  const log = io.log || console.log;
+  const error = io.error || console.error;
+  const warn = io.warn || console.warn;
+
   let parsed;
   try {
     parsed = parseArgs({
@@ -47,14 +53,15 @@ export async function run(args) {
       },
     });
   } catch (err) {
-    console.error(`Error: ${err.message}\n\n${HELP}`);
-    process.exit(2);
+    error(`Error: ${err.message}\n\n${HELP}`);
+    exit(2);
+    return;
   }
 
   const { values, positionals } = parsed;
 
   if (values.help) {
-    console.log(HELP);
+    log(HELP);
     return;
   }
 
@@ -64,21 +71,31 @@ export async function run(args) {
     const { dirname, join } = await import('node:path');
     const __dirname = dirname(fileURLToPath(import.meta.url));
     const pkg = JSON.parse(readFileSync(join(__dirname, '..', 'package.json'), 'utf8'));
-    console.log(pkg.version);
+    log(pkg.version);
     return;
   }
 
-  const subcommand = positionals[0] || 'all';
-
-  if (subcommand !== 'all' && !VALID_AUDITS.has(subcommand)) {
-    console.error(`Unknown command: ${subcommand}\n\n${HELP}`);
-    process.exit(2);
+  const VALID_REPORTERS = new Set(['text', 'json']);
+  const reporterName = values.reporter;
+  if (!VALID_REPORTERS.has(reporterName)) {
+    error(`Invalid reporter: "${reporterName}". Valid options: text, json\n\n${HELP}`);
+    exit(2);
+    return;
   }
 
-  const audits =
-    subcommand === 'all'
-      ? ALL_AUDITS
-      : [subcommand === 'duplicates' ? 'dupes' : subcommand];
+  const rawSubcommands = positionals.length > 0 ? positionals : ['all'];
+
+  for (const cmd of rawSubcommands) {
+    if (cmd !== 'all' && !VALID_AUDITS.has(cmd)) {
+      error(`Unknown command: ${cmd}\n\n${HELP}`);
+      exit(2);
+      return;
+    }
+  }
+
+  const audits = rawSubcommands.includes('all')
+    ? ALL_AUDITS
+    : Array.from(new Set(rawSubcommands.map((cmd) => (cmd === 'duplicates' ? 'dupes' : cmd))));
 
   // Run lint
   const { ok, results, warnings } = await lint({ audits, ...values });
@@ -86,19 +103,22 @@ export async function run(args) {
   // Print scan warnings in verbose mode
   if (values.verbose && warnings.length > 0) {
     for (const w of warnings) {
-      console.warn(`WARN: ${w}`);
+      warn(`WARN: ${w}`);
     }
   }
 
   // Select reporter
-  const reporterName = values.reporter || 'text';
   let reporter;
   if (reporterName === 'json') {
     const { createReporter } = await import('./reporters/json.js');
-    reporter = createReporter();
+    reporter = createReporter({ write: io.write });
   } else {
     const { createReporter } = await import('./reporters/text.js');
-    reporter = createReporter({ noColor: values['no-color'], verbose: values.verbose });
+    reporter = createReporter({
+      noColor: values['no-color'],
+      verbose: values.verbose,
+      log,
+    });
   }
 
   for (const [name, result] of Object.entries(results)) {
@@ -106,5 +126,5 @@ export async function run(args) {
   }
 
   reporter.summary();
-  process.exit(ok ? 0 : 1);
+  exit(ok ? 0 : 1);
 }

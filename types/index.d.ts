@@ -89,7 +89,7 @@ export function scanReferences(config: Config): ScanResult;
 export function findFiles(
   startPath: string,
   extensions: string[],
-  options?: { recursive?: boolean }
+  options?: { recursive?: boolean; ignoredDirs?: Iterable<string> }
 ): string[];
 export function normalizePath(
   rawPath: string,
@@ -103,7 +103,7 @@ export function auditCompat(config: Config): Promise<CompatAuditResult>;
 export function auditOveruse(config: Config, scanResult: ScanResult): AuditResult<OveruseIssue>;
 
 export interface LintOptions extends Partial<Config> {
-  audits?: Array<'broken' | 'unused' | 'dupes' | 'compat' | 'overuse'>;
+  audits?: Array<'broken' | 'unused' | 'dupes' | 'duplicates' | 'compat' | 'overuse'>;
 }
 
 export interface LintResult {

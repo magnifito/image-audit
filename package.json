@@ -15,16 +15,20 @@
   },
   "scripts": {
     "generate-fixtures": "node test/generate-fixtures.js",
-    "test": "node test/generate-fixtures.js && node --test test/run.js"
+    "test": "node test/generate-fixtures.js && node --test test/run.js",
+    "test:coverage": "node test/generate-fixtures.js && node --test --experimental-test-coverage test/run.js"
   },
   "engines": {
-    "node": ">=18.3.0"
+    "node": ">=20.0.0"
   },
   "bin": {
     "image-audit": "./bin/image-audit.js"
   },
   "exports": {
-    ".": "./src/index.js"
+    ".": {
+      "types": "./types/index.d.ts",
+      "default": "./src/index.js"
+    }
   },
   "files": [
     "bin/",
@@ -45,7 +49,7 @@
     "web"
   ],
   "dependencies": {
-    "file-type": "^20.5.0"
+    "file-type": "^21.3.4"
   },
   "peerDependencies": {
     "sharp": ">=0.33.0"

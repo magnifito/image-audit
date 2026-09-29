@@ -4,24 +4,24 @@ import { fileTypeFromFile } from 'file-type';
 import { findFiles } from '../utils/find-files.js';
 import { inspectImage, WEB_IMAGE_EXTS } from '../utils/inspect-image.js';
 
-function gcd(a, b) {
+export function gcd(a, b) {
   return b === 0 ? a : gcd(b, a % b);
 }
 
-function calculateAspectRatio(width, height) {
+export function calculateAspectRatio(width, height) {
   if (!width || !height) return null;
   const divisor = gcd(width, height);
   return `${width / divisor}:${height / divisor}`;
 }
 
-function areEquivalent(ext1, ext2) {
+export function areEquivalent(ext1, ext2) {
   if ((ext1 === 'jpg' && ext2 === 'jpeg') || (ext1 === 'jpeg' && ext2 === 'jpg')) return true;
   // SVG is XML-based — file-type detects SVGs as application/xml
   if ((ext1 === 'svg' && ext2 === 'xml') || (ext1 === 'xml' && ext2 === 'svg')) return true;
   return false;
 }
 
-function safeStatSize(filePath) {
+export function safeStatSize(filePath) {
   try {
     return fs.statSync(filePath).size;
   } catch {
@@ -42,17 +42,19 @@ function safeStatSize(filePath) {
  */
 export async function auditCompat(config) {
   const { assetsDirAbsolute, projectRoot, imageExtensions } = config;
-  const allImages = findFiles(assetsDirAbsolute, imageExtensions);
+  const allImages = config._allImages || findFiles(assetsDirAbsolute, imageExtensions);
   const issues = [];
   const entries = [];
   let audited = 0;
 
   // Try to load sharp — it's an optional peer dependency
-  let sharp = null;
-  try {
-    sharp = (await import('sharp')).default;
-  } catch {
-    // sharp not installed — dimensions/aspect ratio unavailable
+  let sharp = config._sharp || null;
+  if (!sharp) {
+    try {
+      sharp = (await import('sharp')).default;
+    } catch {
+      // sharp not installed — dimensions/aspect ratio unavailable
+    }
   }
 
   for (const imagePath of allImages) {
@@ -67,8 +69,9 @@ export async function auditCompat(config) {
       const inspection = inspectImage(imagePath);
 
       // 2. Secondary: file-type library cross-check (skip for SVG — it can't detect text formats)
+      const ftFn = config._fileTypeFromFile || fileTypeFromFile;
       const ftResult = inspection?.format !== 'svg'
-        ? await fileTypeFromFile(imagePath)
+        ? await ftFn(imagePath)
         : null;
 
       // Determine the detected format — prefer our inspection, fall back to file-type
@@ -119,6 +122,7 @@ export async function auditCompat(config) {
       // Detected format doesn't match declared extension
       else if (detectedExt !== declaredExt && !areEquivalent(declaredExt, detectedExt)) {
         entry.status = 'mismatch';
+        entry.errorMessage = `Declared .${declaredExt}, detected .${detectedExt} (${detectedMime || 'unknown mime'})`;
         issues.push({ ...entry, type: 'mismatch' });
       }
       // Equivalent extensions (jpg/jpeg)
